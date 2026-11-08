@@ -44,7 +44,7 @@ docker compose up -d --build
 docker compose ps
 curl http://127.0.0.1:29301/health
 ```
-The first start downloads about 250 MB of weights into the `stt_moonshine_model_models` volume; `stt_moonshine_model_lb` waits for a healthy service
+The admin Download action downloads about 250 MB of weights into the `stt_moonshine_model_models` volume; `stt_moonshine_model_lb` waits for a healthy service
 (up to 300 s grace).
 
 ## 4. Connect callers

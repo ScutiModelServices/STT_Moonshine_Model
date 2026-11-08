@@ -20,7 +20,7 @@ Run Moonshine on the CPU in Docker Desktop on the machine you work on, so other 
    ```bash
    docker compose up -d --build
    ```
-   The first start downloads about 250 MB of weights into the `stt_moonshine_model_models` volume. `stt_moonshine_model_lb` starts only after the service is healthy
+   The admin Download action downloads about 250 MB of weights into the `stt_moonshine_model_models` volume. `stt_moonshine_model_lb` starts only after the service is healthy
    (up to 300 s grace). Watch with `docker compose ps` and `docker compose logs -f stt_moonshine_model`.
 3. Check:
    ```bash

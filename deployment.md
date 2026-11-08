@@ -3,6 +3,8 @@
 STT_Moonshine_Model is one HTTP service (port 29301). It runs as `stt_moonshine_model` replicas behind an nginx load balancer,
 `stt_moonshine_model_lb`. Callers use `http://<host>:29301`; they never reach a replica directly.
 
+First run requires [Updates → Download](docs/guide-web-ui.md#downloaded-weights) after opening `/admin/`; health and admin stay available before weights are downloaded.
+
 ## Ways to run it
 
 Each path has its own guide. Pick one.
