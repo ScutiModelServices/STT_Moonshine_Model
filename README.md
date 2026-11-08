@@ -1,11 +1,11 @@
-# STTMoonshineModel
+# STT_Moonshine_Model
 
 The one place Moonshine speech-to-text is served: Useful Sensors' Moonshine (ONNX, `useful-moonshine-onnx`) with `base` by default, on the CPU.
 Projects send 16 kHz mono PCM over HTTP and get text and segments back. English only, no word timestamps. It has the same admin page,
 tokens, rate limits, metrics, settings and update checks as the other model services.
 
 It is the model half of `AI/ToolServices/Scribe`: Scribe keeps ffmpeg decoding, per-user quota, the upload store and live
-dictation, and calls this service for the transcription (`SCRIBE_WHISPER_URL`).
+dictation, and calls this service for transcription through a connection saved on Scribe's admin page.
 
 ## API
 
@@ -16,7 +16,7 @@ dictation, and calls this service for the transcription (`SCRIBE_WHISPER_URL`).
 
 **Input.** The body is 16 kHz, mono, signed 16-bit little-endian PCM (`application/octet-stream`), what
 `ffmpeg -f s16le -ar 16000 -ac 1` makes. The service does not decode other formats. An empty body or an odd byte count
-is 422; more than *Longest audio per call* (`MOONSHINE_MAX_SECONDS`, default 150, at most 900) is 413.
+is 422; more than *Longest audio per call* (`SERVICE_MAX_SECONDS`, default 150, at most 900) is 413.
 
 **Query options.** `language` (default `en`; `auto` is the same as `en`; any other code is 422), `beam_size` and
 `word_timestamps` (accepted so Whisper-shaped callers work, both ignored), `stream` (default `false`). Any other option
@@ -40,7 +40,7 @@ its audio (speech is 3 to 4), at least 8.
 call without `stream` returns. A refusal before the first segment is a normal HTTP error; a failure after it is sent as
 `{"type": "error", "status", "message"}` and ends the stream. A kept answer is streamed back segment by segment.
 
-**Cache.** *Answers kept per replica* (`MOONSHINE_CACHE_SIZE`, default 256, 0 = off) keeps the last answers for the same
+**Cache.** *Answers kept per replica* (`SERVICE_CACHE_SIZE`, default 256, 0 = off) keeps the last answers for the same
 audio and options and sends them again without transcribing (`X-Cache: hit`). Decoding is deterministic, so every request
 is kept. New weights empty the cache. The cache is per replica, so with N replicas the hit rate is about 1/N.
 
@@ -48,7 +48,7 @@ is kept. New weights empty the cache. The cache is per replica, so with N replic
 
 ## Admin page
 
-`/admin/` (password `MOONSHINE_ADMIN_PASSWORD`): tokens with rate limit and expiry, usage numbers, CPU threads, the
+`/admin/` (password `SERVICE_ADMIN_PASSWORD`): tokens with rate limit and expiry, usage numbers, CPU threads, the
 Settings card (update check hours, in-flight cap, answers kept, longest audio, and the restart options
 model, number format, load at start), and the Updates card (**Check now** and **Download new weights** for the Hugging
 Face repository). New weights are downloaded once into the shared models volume; the other replicas notice within a few
@@ -60,17 +60,19 @@ next call loads it again. Set the value to the physical core count.
 
 ## Run
 
+On first run, open `/admin/` → Updates → Download. Until weights are downloaded, `/health` reports `ready: false` and inference returns 503. Loading never downloads. See [download steps and curl alternative](docs/guide-web-ui.md#downloaded-weights).
+
 ```bash
-docker compose up -d --build        # http://<host>:9240
+docker compose up -d --build        # http://<host>:29301
 ```
 
-Without Docker: `run.bat` (uv, listens on `127.0.0.1:9240`). The first transcription downloads the model (about 250 MB
+Without Docker: `run.bat` (uv, listens on `127.0.0.1:29301`). The first transcription downloads the model (about 250 MB
 for `base` float, less for `quantized` or `tiny`). See `deployment.md`.
 
 Example (needs `ffmpeg`):
 
 ```bash
-ffmpeg -v error -i speech.wav -f s16le -ar 16000 -ac 1 - | curl -X POST "http://127.0.0.1:9240/v1/transcribe" \
+ffmpeg -v error -i speech.wav -f s16le -ar 16000 -ac 1 - | curl -X POST "http://127.0.0.1:29301/v1/transcribe" \
   -H "X-Internal-Token: moonshine_..." --data-binary @-
 ```
 
@@ -92,9 +94,18 @@ The tests use a fake model; none loads real weights. `tools/smoke.py` runs the r
 - English only; no punctuation or casing control, no timestamps inside a piece.
 - Model errors are never sent to the caller (they can hold paths): the reply is "Transcription failed. Try again."
 
-
 ## Try it from the admin page
 
 Open `/admin/` and use **Try it** to call the public API with a service token held only in memory. Runs use normal token scopes, limits and caches; the panel shows HTTP status, latency, responses, cancellation and a curl equivalent with a token placeholder. See [the web UI guide](docs/guide-web-ui.md#try-it-send-a-real-request).
 
 Transcribe accepts an audio file and sends raw 16 kHz mono signed 16-bit little-endian PCM to `POST /v1/transcribe`. Browser-decodable encoded audio is converted in the browser; raw `.pcm` input must already have that format. Language, beam size, word timestamps and streaming are query options. Decoded audio is capped at 150 seconds in the browser; the server can impose a lower limit. The curl body for converted audio is `@input.pcm`, not the original encoded file.
+
+## Documentation
+
+- [Purpose: input, output and what it is for](docs/purpose.md)
+- [Deployment](deployment.md)
+- [Changelog](CHANGELOG.md)
+- [Docker on another machine](docs/guide-docker-deployment-device.md)
+- [Docker on this PC](docs/guide-docker-same-device.md)
+- [Run without Docker](docs/guide-no-docker-same-device.md)
+- [Test it from the command line](docs/guide-cli.md)

@@ -141,15 +141,12 @@ def _models_dir(model: str, compute_type: str, *, offline: bool) -> str:
 
 
 def load(model: str, compute_type: str, threads: int) -> Loaded:
-    """Use the cached files when they are there (no network), otherwise download them. `threads` > 0 is applied to the
+    """Load downloaded files only; never fetch during loading. `threads` > 0 is applied to the
     onnxruntime sessions the library builds (it does not expose the option)."""
     import moonshine_onnx
     import onnxruntime
 
-    try:
-        path = _models_dir(model, compute_type, offline=True)
-    except Exception:
-        path = _models_dir(model, compute_type, offline=False)
+    path = _models_dir(model, compute_type, offline=True)
     real = onnxruntime.InferenceSession
 
     def session(source: Any, *args: Any, **kwargs: Any) -> Any:
@@ -184,7 +181,7 @@ def _cached_sha(repo: str) -> str | None:
 
 def default_marker() -> Path:
     """File in the shared models volume whose content changes when one replica downloads new weights."""
-    configured = os.environ.get("MOONSHINE_WEIGHTS_MARKER")
+    configured = os.environ.get("SERVICE_WEIGHTS_MARKER")
     return Path(configured) if configured else Path(os.environ.get("HF_HOME") or "~/.cache/huggingface").expanduser() / ".moonshine-weights-version"
 
 
@@ -238,7 +235,10 @@ class MoonshineEngine:
     def _base_model(self) -> Loaded:
         with self._load_lock:
             if self._base is None:
-                self._base = self._loader(self.model)
+                try:
+                    self._base = self._loader(self.model)
+                except OSError as error:
+                    raise EngineError("Model weights unavailable. Ask an admin to press Download on the Updates card.", 503) from error
             return self._base
 
     def _language(self, language: str) -> str | None:
