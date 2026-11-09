@@ -103,6 +103,10 @@ When you create a token you can list the projects it may use (comma separated; e
 - **Metrics:** `GET /metrics` (send the admin password in `X-Internal-Token`) returns the same numbers as Prometheus text, one series per token. It reads the shared token file, so any replica answers with the same data. `moonshine_request_seconds` is a histogram of how long each `/v1` call took on the replica that answers (to the first byte for a streamed reply); it starts from 0 when the replica restarts.
 - **Project models** card: the models loaded for a single project on the replica that answered.
 
+## Model variant
+
+The **Model variant** card lists the Moonshine combinations of size (`tiny`, `base`) and number format (`float`, `quantized`). All run on the CPU and understand English only. Each row shows the estimated memory it takes (the file size plus a margin; not measured), the download size, whether the files are already on disk, and the machine's free memory at the top. A variant that does not fit the free memory is greyed with the reason and cannot be chosen. **Use** saves the size and the number format; restart the service to apply them, then press Download on the Updates card if the files are not on disk yet. The variant already loaded counts as fitting.
+
 ## Settings
 
 The **Settings** card changes options without editing `.env.compose`, `.env` or restarting: update-check interval, caches and limits, and similar. Each row shows where its value comes from (saved, environment or default). A value saved here beats the environment variable; **Reset** removes it. Every replica reads the shared settings file, so a change applies within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports, replica count and other Docker settings stay in `.env` or the compose file, because the service cannot change its own container.
