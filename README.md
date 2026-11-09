@@ -63,7 +63,7 @@ next call loads it again. Set the value to the physical core count.
 On first run, open `/admin/` → Updates → Download. Until weights are downloaded, `/health` reports `ready: false` and inference returns 503. Loading never downloads. See [download steps and curl alternative](docs/guide-web-ui.md#downloaded-weights).
 
 ```bash
-docker compose up -d --build        # http://<host>:29301
+docker compose --env-file .env.compose up -d --build        # http://<host>:29301
 ```
 
 Without Docker: `run.bat` (uv, listens on `127.0.0.1:29301`). Open `/admin/` → Updates → Download once to install the model (about 250 MB
