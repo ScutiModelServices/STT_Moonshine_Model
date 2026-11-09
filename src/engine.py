@@ -136,7 +136,13 @@ def _models_dir(model: str, compute_type: str, *, offline: bool) -> str:
     from huggingface_hub import snapshot_download
 
     folder = folder_of(model, compute_type)
-    root = snapshot_download(repo_id=REPO, allow_patterns=[f"{folder}/*"], local_files_only=offline, token=False)
+    if offline:
+        root = snapshot_download(repo_id=REPO, allow_patterns=[f"{folder}/*"], local_files_only=True, token=False)
+    else:
+        from progress import hub_blobs, hub_total, tracking
+
+        with tracking(REPO, hub_total(REPO, None, [f"{folder}/*"]), hub_blobs(REPO)):
+            root = snapshot_download(repo_id=REPO, allow_patterns=[f"{folder}/*"], token=False)
     return str(Path(root) / folder)
 
 
