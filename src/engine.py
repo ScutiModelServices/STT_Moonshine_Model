@@ -185,6 +185,14 @@ def _cached_sha(repo: str) -> str | None:
         return None
 
 
+def _on_disk(model: str, compute_type: str) -> bool:
+    """True when the files of this model and number format are in the local Hub cache."""
+    try:
+        return any(p.is_file() for p in Path(_models_dir(model, compute_type, offline=True)).iterdir())
+    except (OSError, ImportError):
+        return False
+
+
 def default_marker() -> Path:
     """File in the shared models volume whose content changes when one replica downloads new weights."""
     configured = os.environ.get("SERVICE_WEIGHTS_MARKER")
@@ -198,13 +206,15 @@ class MoonshineEngine:
     def __init__(self, model: str = DEFAULT_MODEL, *, compute_type: str = "float",
                  marker: Path | None = None, loader: Callable[[str], Loaded] | None = None,
                  remote_sha: Callable[[str], str] = _remote_sha, cached_sha: Callable[[str], str | None] = _cached_sha,
-                 download: Callable[[str], None] | None = None) -> None:
+                 download: Callable[[str], None] | None = None,
+                 on_disk: Callable[[str, str], bool] = lambda model, compute_type: _on_disk(model, compute_type)) -> None:
         if model not in MODELS:
             raise ValueError(f"model must be one of {', '.join(MODELS)}, not {model!r}")
         if compute_type not in COMPUTE_TYPES:
             raise ValueError(f"compute_type must be one of {', '.join(COMPUTE_TYPES)}, not {compute_type!r}")
         self.model = model
         self.compute_type = compute_type
+        self._on_disk = on_disk
         self._threads: int | None = None
         self._marker = marker
         self._seen = self._read_marker()
@@ -294,6 +304,11 @@ class MoonshineEngine:
                 stop.set()  # a running `next` then ends by itself; closing the generator here could race with it
 
     # Updates: the Hub revision of the weights, shared by all replicas through one models volume.
+
+    async def downloaded(self, choices: list[tuple[str, str]]) -> set[tuple[str, str]]:
+        """The (model, number format) pairs, among `choices`, whose files are on disk."""
+        found = await asyncio.gather(*(asyncio.to_thread(self._on_disk, m, c) for m, c in choices))
+        return {choice for choice, here in zip(choices, found) if here}
 
     async def cached_sha(self) -> str | None:
         return await asyncio.to_thread(self._cached_sha_of, REPO)
